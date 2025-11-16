@@ -45,12 +45,6 @@ class AxisControlWidget(QWidget):
         label.setMinimumWidth(30)
         layout.addWidget(label)
         
-        # Current reading
-        self.reading_label = QLabel("--- V")
-        self.reading_label.setStyleSheet("color: blue; font-weight: bold;")
-        self.reading_label.setMinimumWidth(60)
-        layout.addWidget(self.reading_label)
-        
         # Slider - always 0-150V, safety enforced dynamically
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMinimum(0)
@@ -113,14 +107,6 @@ class AxisControlWidget(QWidget):
             self.voltageChanged.emit(voltage)
             self.updating = False
     
-    def update_reading(self, voltage):
-        """Update the current voltage reading display"""
-        if voltage is not None:
-            self.reading_label.setText(f"{voltage:.2f} V")
-            # Update last valid value when reading updates
-            if not self.updating:
-                self.last_valid_value = voltage
-    
     def update_safe_max(self, safe_max):
         """Update safe maximum voltage limit"""
         self.limits["safe_max"] = safe_max
@@ -136,6 +122,7 @@ class DeviceTabWidget(QWidget):
         self.axis_controls = {}
         
         self.init_ui()
+        self.load_current_voltages()
     
     def init_ui(self):
         layout = QVBoxLayout()
@@ -271,6 +258,27 @@ class DeviceTabWidget(QWidget):
             self.controller.enable_safety()
         else:
             self.controller.disable_safety()
+    
+    def load_current_voltages(self):
+        """Read current voltages from device and initialize controls"""
+        try:
+            for axis in self.controller.controller.axes:
+                voltage = self.controller.controller.get_voltage(axis)
+                if voltage is not None and axis in self.axis_controls:
+                    widget = self.axis_controls[axis]
+                    # Update controls without triggering signals
+                    widget.updating = True
+                    widget.slider.setValue(int(voltage * 10))
+                    widget.spinbox.setValue(voltage)
+                    widget.last_valid_value = voltage
+                    widget.updating = False
+        except Exception as e:
+            # Log error to parent window
+            parent = self.parent()
+            while parent and not isinstance(parent, MDTControlGUI):
+                parent = parent.parent()
+            if parent:
+                parent.log(f"{self.port}: Error loading current voltages: {e}", "WARNING")
 
 
 class MDTControlGUI(QMainWindow):
@@ -468,8 +476,12 @@ class MDTControlGUI(QMainWindow):
                     controller = self.controllers[port]
                     for axis, widget in tab.axis_controls.items():
                         try:
-                            voltage = controller.get_voltage(axis)
-                            widget.update_reading(voltage)
+                            voltage = controller.controller.get_voltage(axis)
+                            if voltage is not None:
+                                # Update spinbox to show live reading without triggering set
+                                widget.updating = True
+                                widget.spinbox.setValue(voltage)
+                                widget.updating = False
                         except:
                             pass
     
