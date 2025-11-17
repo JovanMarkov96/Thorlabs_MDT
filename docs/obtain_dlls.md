@@ -8,6 +8,33 @@ instructions below to obtain and install them locally.
 Important: read the Thorlabs End-user License (included in `docs/licenses/`) before
 downloading or redistributing binaries.
 
+Local-only DLL folder (do NOT commit)
+------------------------------------
+
+This repository does not include Thorlabs DLLs or other vendor binaries. You should
+keep those vendor files on your local machine only. Concretely:
+
+- Create a local folder named `.mdt_dlls/` in the project root and place the
+   vendor DLLs there. Example (PowerShell):
+
+```powershell
+# from the repository root
+New-Item -ItemType Directory -Path .\.mdt_dlls\
+# copy the vendor DLL(s) into .mdt_dlls\
+```
+
+- The repository's `.gitignore` already contains an entry for `.mdt_dlls/`, so
+   those files will not be committed if you follow the instructions. Do NOT force
+   add these files with `git add -f`.
+
+- Follow the rest of the steps in this document (below) to download the correct
+   package from Thorlabs and place the DLL(s) into `.mdt_dlls/`.
+
+If you maintain a fork or mirror and for some reason need to package DLLs for a
+private release, ensure you comply with Thorlabs' EULA and include the original
+EULA text alongside the binaries. For the public repository we intentionally
+exclude vendor binaries to avoid redistribution and licensing issues.
+
 Steps
 1. Visit the official Thorlabs software pages for the MDT controllers. For example:
 
