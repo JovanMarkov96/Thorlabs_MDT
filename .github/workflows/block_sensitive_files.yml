@@ -1,0 +1,23 @@
+name: Block Forbidden Files
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-forbidden-files:
+    name: Check for forbidden local files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fail if forbidden files are present
+        run: |
+          forbidden='(^\.mdt_dlls/|^mdt_devices\.json$|^mdt_probe\.json$)'
+          matches=$(git ls-files | grep -E "$forbidden" || true)
+          if [ -n "$matches" ]; then
+            echo "ERROR: Repository contains forbidden local files:" >&2
+            echo "$matches" >&2
+            exit 1
+          fi
