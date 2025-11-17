@@ -1,0 +1,34 @@
+Thorlabs End-user License (summary)
+=================================
+
+This file is a plain-text summary of the Thorlabs End-user License Agreement (EULA)
+that accompanies the MDT SDK and related vendor DLLs. A copy of the original RTF
+EULA (as provided by Thorlabs) is available locally at:
+
+  .mdt_dlls/License_V2.4.2/License/Thorlabs/Thorlabs End-user License.rtf
+
+Key points (non-exhaustive, read the full license before redistributing):
+
+- This EULA is a binding contract; by using the Software you accept its terms.
+- Thorlabs grants a non-exclusive license to use the Software.
+- Redistribution: the EULA explicitly permits making copies and giving copies to
+  other persons or entities provided that the copies include the Agreement and
+  retain Thorlabs' copyright and proprietary notices.
+- Use restriction: the Software may only be used in combination with Thorlabs
+  equipment; other uses are prohibited.
+- You may not rent, lease, or sublicense the Software. Transfer is allowed only
+  if the transferee assumes the Agreement.
+- Reverse engineering, decompiling, disassembly and attempts to discover source
+  code are prohibited.
+- The Software is provided "AS IS" without warranty; Thorlabs disclaims liability
+  for damages and provides standard warranty limitation language.
+- Governing law: United States (per the EULA text read).
+
+Recommendation (conservative, professional):
+- Do NOT commit vendor DLL binaries into the public repository unless you have
+  verified that your particular copy and the SDK version you redistribute are
+  covered by the EULA and you include the full EULA text alongside the binaries.
+- Preferred approach: keep the `.mdt_dlls/` directory ignored and provide
+  instructions (below) for users to obtain the DLLs themselves from Thorlabs.
+
+See `docs/obtain_dlls.md` for step-by-step instructions and script guidance.
