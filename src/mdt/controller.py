@@ -173,41 +173,69 @@ class MDTController:
         
         try:
             # Clear buffers
-            self.connection.reset_input_buffer()
-            
-            # Send command with proper termination
+            try:
+                self.connection.reset_input_buffer()
+                self.connection.reset_output_buffer()
+            except Exception:
+                pass
+
+            # Send command with termination. Some legacy devices accept '\r' only,
+            # others accept '\r\n' — write both to be robust.
             cmd_bytes = command.encode('ascii') + b'\r\n'
-            self.connection.write(cmd_bytes)
-            self.connection.flush()
-            
-            # Wait for response - longer for legacy devices
+            try:
+                self.connection.write(cmd_bytes)
+                self.connection.flush()
+            except Exception:
+                # As a fallback, try sending just CR
+                try:
+                    self.connection.write(command.encode('ascii') + b'\r')
+                    self.connection.flush()
+                except Exception as e:
+                    print(f"Write failed for '{command}': {e}")
+                    return None
+
+            # Wait for response - slightly longer for legacy devices
             pause_time = 0.15 if self.is_legacy_protocol else 0.05
-            time.sleep(pause_time)  # Brief pause for device processing
-            
-            response = b""
+            time.sleep(pause_time)
+
+            response = bytearray()
             start_time = time.time()
-            
+
+            # Read loop: collect available bytes until timeout. Some adapters
+            # (Prolific) may not update `in_waiting` precisely, so read at
+            # short intervals and append anything returned.
             while time.time() - start_time < cmd_timeout:
-                if self.connection.in_waiting > 0:
-                    chunk = self.connection.read(self.connection.in_waiting)
-                    response += chunk
-
-                    # Check for common completion markers used by MDT devices
-                    # legacy units sometimes use '*' as a terminator in our probes,
-                    # and most responses include CR/LF. Stop early when we see any
-                    # of these so we don't wait the full timeout unnecessarily.
-                    if any(term in response for term in (b'>', b'!', b'*', b'\n', b'\r')):
+                try:
+                    to_read = max(1, getattr(self.connection, 'in_waiting', 0))
+                    chunk = self.connection.read(to_read)
+                except Exception:
+                    chunk = b''
+                if chunk:
+                    response.extend(chunk)
+                    # If we see common terminators, break early
+                    if any(t in response for t in (b'>', b'!', b'*', b'\n', b'\r', b']')):
                         break
+                else:
+                    # brief backoff
+                    time.sleep(0.02)
 
-                # Small sleep so loop isn't busy-waiting
-                time.sleep(0.02)
-            
             if response:
-                decoded = response.decode('ascii', errors='ignore').strip()
-                # Remove control characters
-                cleaned = decoded.replace('\r', '').replace('\n', '').replace('>', '').replace('!', '')
+                decoded = response.decode('ascii', errors='ignore')
+                # Remove surrounding control characters and prompts
+                cleaned = decoded.strip()
+
+                # Remove any echoed command prefix (case-insensitive)
+                try:
+                    cmd_text = command.strip()
+                    if cmd_text and cleaned.upper().startswith(cmd_text.upper()):
+                        cleaned = cleaned[len(cmd_text):].lstrip(' \r\n>!*')
+                except Exception:
+                    pass
+
+                # Final sanitize: remove stray CR/LF and prompt symbols
+                cleaned = cleaned.replace('\r', '').replace('\n', '').replace('>', '').replace('!', '')
                 return cleaned.strip()
-                
+
         except Exception as e:
             print(f"Command '{command}' failed: {e}")
             
@@ -529,7 +557,14 @@ class HighLevelMDTController:
                 # Use first available device
                 device_info = next(iter(devices.values()))
                 port = device_info["Device"]
-                model = device_info.get("Model", "Unknown")
+                model = device_info.get("Model", "") or ""
+                # If model is empty, try to parse from ProbeReply
+                if not model or model == "Unknown":
+                    probe_reply = device_info.get("ProbeReply", "")
+                    if probe_reply:
+                        m = re.search(r"MDT[- ]?\d{3,4}[A-Za-z]?", probe_reply, re.IGNORECASE)
+                        if m:
+                            model = m.group(0).upper().replace(" ", "")
                 self._initialize_device(port, model)
         except Exception as e:
             print(f"Auto-discovery failed: {e}")
@@ -539,12 +574,39 @@ class HighLevelMDTController:
         try:
             with open("mdt_devices.json", "r") as f:
                 devices = json.load(f)
-            return {d["Device"]: d for d in devices if "MDT" in d.get("Model", "")}
+            # Include devices that either have a parsed Model containing 'MDT'
+            # or that were probe-matched (ProbeMatch == True). Some adapters
+            # (e.g. Prolific) don't populate manufacturer fields but active
+            # probing can still identify MDT devices; accept those here.
+            result = {}
+            for d in devices:
+                model = d.get("Model", "") or ""
+                probematch = bool(d.get("ProbeMatch"))
+                if "MDT" in model or probematch:
+                    result[d["Device"]] = d
+            return result
         except:
             return {}
     
     def _initialize_device(self, port: str, model: str = None):
         """Initialize device connection"""
+        # If model not provided or empty, try to read from device list
+        if not model or model == "Unknown":
+            devices = self._load_device_list()
+            if port in devices:
+                dev_info = devices[port]
+                model = dev_info.get("Model", "") or ""
+                # If still empty, try ProbeReply
+                if not model:
+                    probe_reply = dev_info.get("ProbeReply", "")
+                    if probe_reply:
+                        m = re.search(r"MDT[- ]?\d{3,4}[A-Za-z]?", probe_reply, re.IGNORECASE)
+                        if m:
+                            model = m.group(0).upper().replace(" ", "")
+        # Fallback to generic 3-axis model if still empty
+        if not model:
+            model = "MDT693B"
+        
         self.controller = MDTController(port=port, model=model)
         
         if self.controller.connect():
@@ -809,7 +871,26 @@ def discover_mdt_devices() -> List[Dict]:
     try:
         with open("mdt_devices.json", "r") as f:
             devices = json.load(f)
-        return [d for d in devices if "MDT" in d.get("Model", "")]
+        # Prefer explicit Model when present, but also include ports that
+        # were positively identified by the active probe (ProbeMatch).
+        filtered = []
+        for d in devices:
+            model = d.get("Model", "") or ""
+            if "MDT" in model:
+                filtered.append(d)
+                continue
+            if d.get("ProbeMatch"):
+                # If Model is missing but probe matched, try to infer a short
+                # model string from the probe reply (e.g. 'MDT693A') and set
+                # it on the returned dict so callers see a useful label.
+                reply = d.get("ProbeReply", "")
+                m = re.search(r"MDT[- ]?\d{3,4}[A-Za-z]?", reply or "", re.IGNORECASE)
+                if m:
+                    d["Model"] = m.group(0).upper().replace(" ", "")
+                else:
+                    d["Model"] = "MDT (unknown)"
+                filtered.append(d)
+        return filtered
     except:
         return []
 
