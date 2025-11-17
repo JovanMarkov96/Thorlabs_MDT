@@ -16,6 +16,23 @@ Run the GUI
 python MDTControlGUI.py
 ```
 
+Discover devices (recommended)
+
+The repository includes a convenience wrapper `find_MDT_devices.py` that enumerates COM ports and — by default — actively probes each port with safe MDT queries to detect Thorlabs devices even when the USB adapter reports a generic vendor (e.g., Prolific).
+
+Examples:
+
+```powershell
+# Probe all COM ports and print results
+python find_MDT_devices.py
+
+# Probe and save JSON output
+python find_MDT_devices.py --json
+
+# Disable active probing and use passive enumeration only
+python find_MDT_devices.py --no-probe --json
+```
+
 Quick Python usage
 
 ```python
