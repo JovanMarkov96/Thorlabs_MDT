@@ -9,8 +9,10 @@ Important: read the Thorlabs End-user License (included in `docs/licenses/`) bef
 downloading or redistributing binaries.
 
 Steps
-1. Visit the official Thorlabs software page for the MDT controllers:
-   https://www.thorlabs.com/software_pages/viewsoftwarepage.cfm?code=MDT693A
+1. Visit the official Thorlabs software pages for the MDT controllers. For example:
+
+   - General MDT download page: https://www.thorlabs.com/software_pages/ViewSoftwarePage.cfm?Code=MDT69xB
+   - Specific MDT693A page (older link): https://www.thorlabs.com/software_pages/viewsoftwarepage.cfm?code=MDT693A
 
 2. Download the appropriate MDT SDK package for your platform (Windows x86/x64).
 
