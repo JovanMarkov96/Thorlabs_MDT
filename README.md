@@ -100,7 +100,7 @@ python MDTControlGUI.py
 
 ![MDT GUI](docs/images/mdt_gui_screenshot.png)
 
-_Figure: MDT GUI showing multi-device control (replace with high-res screenshot at `docs/images/mdt_gui_screenshot.png`)._
+_Figure: MDT GUI showing multi-device control._
 
 The GUI will auto-discover connected devices and provide per-device control tabs.
 
