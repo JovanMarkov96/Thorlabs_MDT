@@ -99,6 +99,10 @@ All devices communicate via RS232/USB-Serial at 115200 baud (8N1).
 python MDTControlGUI.py
 ```
 
+![MDT GUI](docs/images/mdt_gui_screenshot.png)
+
+_Figure: MDT GUI showing multi-device control (replace with high-res screenshot at `docs/images/mdt_gui_screenshot.png`)._
+
 The GUI will auto-discover connected devices and provide per-device control tabs.
 
 ### Python Quick Example
