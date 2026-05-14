@@ -618,22 +618,25 @@ class HighLevelMDTController:
             self.controller = None
     
     def _initialize_safety_limits(self, custom_safe_max: float = None):
-        """Initialize safety voltage limits
-        
+        """Initialize safety voltage limits.
+
         Args:
-            custom_safe_max: Override default safe maximum (default: 100V)
+            custom_safe_max: Upper software safety cap in volts.  When omitted
+                the device's own configured voltage limit (read via XH?/YH?/ZH?)
+                is used as the safe maximum, so no range is arbitrarily restricted.
+                Pass a value to impose a stricter cap (e.g. to protect a piezo
+                stack rated below the controller's full range).
         """
         if not self.controller:
             return
-        
-        default_safe_max = custom_safe_max if custom_safe_max is not None else 100.0
-            
+
         for axis in self.controller.axes:
             min_v, max_v = self.controller.get_voltage_limits(axis)
+            safe_max = min(max_v, custom_safe_max) if custom_safe_max is not None else max_v
             self.voltage_limits[axis] = {
                 "min": min_v,
                 "max": max_v,
-                "safe_max": min(max_v, default_safe_max)
+                "safe_max": safe_max,
             }
     
     def is_connected(self) -> bool:
